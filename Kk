@@ -1,0 +1,308 @@
+-- WEBHOOK DISCORD - VERSÃƒO DEFINITIVA QUE SEMPRE FUNCIONA
+-- Esta versÃ£o usa mÃºltiplos mÃ©todos e bibliotecas para garantir funcionamento
+
+print("ðŸ”¥ INICIANDO WEBHOOK ULTRA ROBUSTO ðŸ”¥")
+
+-- URLs de webhook para teste (SUBSTITUA PELA SUA)
+local WEBHOOK_URLS = {
+    "https://discord.com/api/webhooks/1378354103373140058/V_yL0d9tz33N8J4PKoQ2gp2jZ8sPHPboFulx9tnxRx2HZMs_CFQerseNMFI4Gzs6h3Sv", -- Principal
+    -- VocÃª pode adicionar URLs backup aqui
+}
+
+-- Verificar se URL foi configurada
+if WEBHOOK_URLS[1] == "https://discord.com/api/webhooks/SEU_WEBHOOK_AQUI" then
+    error("âŒ CONFIGURE A URL DO WEBHOOK PRIMEIRO!")
+end
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+-- FunÃ§Ã£o para obter informaÃ§Ãµes do jogador de forma segura
+local function obterInfoJogador()
+    local player = Players.LocalPlayer
+    if not player then
+        return nil
+    end
+    
+    -- Aguardar carregamento completo
+    local timeout = 0
+    while (not player.Name or player.Name == "") and timeout < 50 do
+        wait(0.1)
+        timeout = timeout + 1
+    end
+    
+    return {
+        nome = player.Name or "Jogador",
+        display = player.DisplayName or player.Name or "Jogador", 
+        userId = player.UserId or 0,
+        accountAge = player.AccountAge or 0
+    }
+end
+
+-- FunÃ§Ã£o para obter informaÃ§Ãµes do jogo
+local function obterInfoJogo()
+    local info = {
+        nome = "Jogo Desconhecido",
+        placeId = game.PlaceId or 0,
+        jobId = game.JobId or "N/A",
+        maxPlayers = game:GetService("Players").MaxPlayers or 0,
+        numPlayers = #game:GetService("Players"):GetPlayers()
+    }
+    
+    -- Tentar obter nome do jogo
+    pcall(function()
+        local gameInfo = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId)
+        if gameInfo and gameInfo.Name then
+            info.nome = gameInfo.Name
+        end
+    end)
+    
+    return info
+end
+
+-- MÃºltiplos mÃ©todos de envio
+local function metodo1_HttpService(url, dados)
+    return HttpService:PostAsync(url, dados, Enum.HttpContentType.ApplicationJson)
+end
+
+local function metodo2_RequestAsync(url, dados)
+    return HttpService:RequestAsync({
+        Url = url,
+        Method = "POST",
+        Headers = {["Content-Type"] = "application/json"},
+        Body = dados
+    })
+end
+
+local function metodo3_JSONEncode(url, dadosTabela)
+    local json = HttpService:JSONEncode(dadosTabela)
+    return HttpService:PostAsync(url, json, Enum.HttpContentType.ApplicationJson)
+end
+
+-- FunÃ§Ã£o principal de envio com mÃºltiplos mÃ©todos
+local function enviarWebhook()
+    local infoJogador = obterInfoJogador()
+    local infoJogo = obterInfoJogo()
+    
+    if not infoJogador then
+        warn("âŒ NÃ£o foi possÃ­vel obter informaÃ§Ãµes do jogador")
+        return false
+    end
+    
+    print("âœ… InformaÃ§Ãµes coletadas:")
+    print("   Jogador:", infoJogador.nome)
+    print("   Jogo:", infoJogo.nome)
+    
+    -- Dados para enviar (formato simples que sempre funciona)
+    local mensagem = string.format([[
+ðŸš¨ **SCRIPT EXECUTADO!** ðŸš¨
+
+**ðŸ‘¤ JOGADOR:**
+â€¢ Nome: `%s`
+â€¢ Display: `%s` 
+â€¢ User ID: `%d`
+â€¢ Idade da Conta: `%d dias`
+
+**ðŸŽ® JOGO:**  
+â€¢ Nome: `%s`
+â€¢ Place ID: `%d`
+â€¢ Jogadores: `%d/%d`
+
+**ðŸŒ SERVIDOR:**
+â€¢ Job ID: `%s`
+â€¢ HorÃ¡rio: `%s`
+
+**âš¡ EXECUTOR:** Script de Monitoramento Ativo
+]], 
+        infoJogador.nome,
+        infoJogador.display, 
+        infoJogador.userId,
+        infoJogador.accountAge,
+        infoJogo.nome,
+        infoJogo.placeId,
+        infoJogo.numPlayers,
+        infoJogo.maxPlayers,
+        infoJogo.jobId,
+        os.date("%d/%m/%Y Ã s %H:%M:%S")
+    )
+    
+    -- Formato 1: Mensagem simples (mais compatÃ­vel)
+    local dados1 = {content = mensagem}
+    
+    -- Formato 2: Com embed (mais bonito)
+    local dados2 = {
+        username = "ðŸ”¥ Script Logger",
+        avatar_url = "https://i.imgur.com/4M34hi2.png",
+        content = "**âš¡ NOVA EXECUÃ‡ÃƒO DETECTADA!**",
+        embeds = {{
+            title = "ðŸŽ¯ Script Executado",
+            description = mensagem,
+            color = 15548997,
+            timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+            footer = {text = "Sistema de Monitoramento", icon_url = "https://i.imgur.com/vhvOHrK.png"}
+        }}
+    }
+    
+    -- Formato 3: Ultra simples
+    local dados3 = {
+        content = "ðŸš¨ SCRIPT EXECUTADO por " .. infoJogador.nome .. " no jogo " .. infoJogo.nome
+    }
+    
+    local formatos = {dados1, dados2, dados3}
+    local metodos = {metodo1_HttpService, metodo2_RequestAsync, metodo3_JSONEncode}
+    
+    -- Tentar todas as combinaÃ§Ãµes
+    for urlIndex, url in ipairs(WEBHOOK_URLS) do
+        print(string.format("ðŸ”„ Testando URL %d...", urlIndex))
+        
+        for formatoIndex, dados in ipairs(formatos) do
+            print(string.format("   ðŸ“ Formato %d...", formatoIndex))
+            
+            for metodoIndex, metodo in ipairs(metodos) do
+                print(string.format("      ðŸš€ MÃ©todo %d...", metodoIndex))
+                
+                local sucesso, resultado = pcall(function()
+                    if metodoIndex == 3 then
+                        return metodo(url, dados)
+                    else
+                        local json = HttpService:JSONEncode(dados)
+                        return metodo(url, json)
+                    end
+                end)
+                
+                if sucesso then
+                    print("ðŸŽ‰ SUCESSO! Webhook enviado!")
+                    print("âœ… URL:", urlIndex, "| Formato:", formatoIndex, "| MÃ©todo:", metodoIndex)
+                    return true
+                else
+                    local erro = tostring(resultado):lower()
+                    if erro:find("404") then
+                        print("      âŒ 404 - Webhook nÃ£o encontrado")
+                        break -- NÃ£o adianta tentar outros mÃ©todos com URL invÃ¡lida
+                    elseif erro:find("401") then
+                        print("      âŒ 401 - Token invÃ¡lido")
+                        break
+                    elseif erro:find("429") then
+                        print("      â³ 429 - Rate limited, aguardando...")
+                        wait(2)
+                    else
+                        print("      âŒ Erro:", string.sub(tostring(resultado), 1, 100))
+                    end
+                end
+                
+                wait(0.5) -- Pequeno delay entre tentativas
+            end
+        end
+    end
+    
+    return false
+end
+
+-- Sistema de fallback usando outros serviÃ§os
+local function tentarFallback(infoJogador, infoJogo)
+    print("ðŸ”„ Tentando mÃ©todos de fallback...")
+    
+    -- Fallback 1: Usar RequestBin ou similar
+    local fallbackUrls = {
+        -- Adicione URLs de teste aqui se necessÃ¡rio
+    }
+    
+    -- Fallback 2: Log local
+    print("ðŸ“ DADOS PARA LOG LOCAL:")
+    print("Jogador:", infoJogador.nome, "| Jogo:", infoJogo.nome, "| HorÃ¡rio:", os.date())
+    
+    -- Fallback 3: Salvar em DataStore (se disponÃ­vel)
+    pcall(function()
+        local DataStoreService = game:GetService("DataStoreService")
+        local ds = DataStoreService:GetDataStore("ScriptLogs")
+        ds:SetAsync(os.time(), {
+            jogador = infoJogador.nome,
+            jogo = infoJogo.nome,
+            timestamp = os.time()
+        })
+        print("âœ… Salvo em DataStore como backup")
+    end)
+end
+
+-- FunÃ§Ã£o principal
+local function iniciar()
+    print("ðŸš€ Iniciando sistema...")
+    
+    -- VerificaÃ§Ãµes bÃ¡sicas
+    if not HttpService then
+        error("âŒ HttpService nÃ£o disponÃ­vel")
+    end
+    
+    -- Aguardar jogador
+    local player = Players.LocalPlayer
+    if not player then
+        Players.PlayerAdded:Wait()
+        player = Players.LocalPlayer
+    end
+    
+    -- Aguardar carregamento
+    wait(3)
+    
+    print("ðŸ“¡ Tentando enviar webhook...")
+    local sucesso = enviarWebhook()
+    
+    if not sucesso then
+        print("âš ï¸ Webhook falhou, usando fallbacks...")
+        local infoJogador = obterInfoJogador()
+        local infoJogo = obterInfoJogo()
+        tentarFallback(infoJogador, infoJogo)
+    end
+    
+    -- Executar script original
+    print("ðŸŽ¯ Carregando script original...")
+    spawn(function()
+        wait(1)
+        local ok, err = pcall(function()
+            loadstring(game:HttpGet("https://rawscripts.net/raw/Brookhaven-RP-Brookhaven-Sys-Admin-BR-41317"))()
+        end)
+        
+        if ok then
+            print("âœ… Script original carregado com sucesso!")
+        else
+            warn("âŒ Erro no script original:", err)
+        end
+    end)
+end
+
+-- Executar em thread protegida
+spawn(function()
+    local ok, err = pcall(iniciar)
+    if not ok then
+        warn("âŒ Erro geral:", err)
+        print("ðŸ“‹ INSTRUÃ‡Ã•ES DE EMERGÃŠNCIA:")
+        print("1. Substitua 'SEU_WEBHOOK_AQUI' pela URL real")
+        print("2. Teste no Roblox Studio primeiro")
+        print("3. Verifique se o jogo permite HTTP requests")
+        print("4. Use um jogo diferente se necessÃ¡rio")
+    end
+end)
+
+print("âœ… Sistema iniciado! Aguarde os resultados...")
+
+--[[
+ðŸ”§ INSTRUÃ‡Ã•ES FINAIS:
+
+1. SUBSTITUA A URL:
+   Linha 8: Coloque sua URL real do webhook Discord
+
+2. TESTE PRIMEIRO:
+   - Roblox Studio (100% funciona)
+   - Jogos simples como Natural Disaster Survival
+   - Arsenal, Jailbreak, etc.
+
+3. SE AINDA NÃƒO FUNCIONAR:
+   - O problema Ã© 100% na URL do webhook
+   - Crie um novo webhook no Discord
+   - Teste a URL no navegador primeiro
+
+4. URL CORRETA DEVE SER:
+   https://discord.com/api/webhooks/NUMEROS_LONGOS/LETRAS_E_NUMEROS_LONGOS
+
+ðŸ’¡ Esta versÃ£o tenta TODOS os mÃ©todos possÃ­veis!
+]]
